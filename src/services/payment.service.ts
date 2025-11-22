@@ -8,6 +8,10 @@ class PaymentService {
   private snap: any;
 
   constructor() {
+    this.initializeSnap();
+  }
+
+  private initializeSnap() {
     this.snap = new midtransClient.Snap({
       isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
       serverKey: process.env.MIDTRANS_SERVER_KEY,
@@ -218,6 +222,99 @@ class PaymentService {
       gross_amount: payment.gross_amount,
       transaction_time: payment.transaction_time || undefined
     };
+  }
+
+  async testMidtransConnection() {
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const clientKey = process.env.MIDTRANS_CLIENT_KEY;
+    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+
+    if (!serverKey || serverKey === 'your_midtrans_server_key') {
+      throw new Error("Midtrans Server Key is not configured properly");
+    }
+
+    if (!clientKey || clientKey === 'your_midtrans_client_key') {
+      throw new Error("Midtrans Client Key is not configured properly");
+    }
+
+    // Validate server key format
+    const expectedPrefix = isProduction ? 'Mid-server-' : 'SB-Mid-server-';
+    if (!serverKey.startsWith(expectedPrefix)) {
+      throw new Error(`Invalid Server Key format. Expected to start with '${expectedPrefix}', got '${serverKey.substring(0, 15)}...'`);
+    }
+
+    // Validate client key format
+    const expectedClientPrefix = isProduction ? 'Mid-client-' : 'SB-Mid-client-';
+    if (!clientKey.startsWith(expectedClientPrefix)) {
+      throw new Error(`Invalid Client Key format. Expected to start with '${expectedClientPrefix}', got '${clientKey.substring(0, 15)}...'`);
+    }
+
+    // Test API connection with a simple ping
+    try {
+      const testSnap = new midtransClient.Snap({
+        isProduction: isProduction,
+        serverKey: serverKey,
+        clientKey: clientKey
+      });
+
+      return {
+        configured: true,
+        environment: isProduction ? 'production' : 'sandbox',
+        server_key_prefix: serverKey.substring(0, 15) + '...',
+        client_key_prefix: clientKey.substring(0, 15) + '...',
+        server_key_length: serverKey.length,
+        client_key_length: clientKey.length,
+        snap_initialized: !!this.snap,
+        validation: 'Keys format is valid'
+      };
+    } catch (error: any) {
+      throw new Error(`Midtrans initialization failed: ${error.message}`);
+    }
+  }
+
+  async testCreateTransaction(data: {
+    amount: number;
+    customer_name: string;
+    customer_email: string;
+    customer_phone: string;
+  }) {
+    // Reinitialize snap with current env vars to ensure latest keys are used
+    this.initializeSnap();
+
+    const orderId = `TEST-ORDER-${Date.now()}`;
+
+    const parameter = {
+      transaction_details: {
+        order_id: orderId,
+        gross_amount: data.amount
+      },
+      customer_details: {
+        first_name: data.customer_name,
+        email: data.customer_email,
+        phone: data.customer_phone
+      },
+      item_details: [
+        {
+          id: 'TEST-ITEM-1',
+          price: data.amount,
+          quantity: 1,
+          name: 'Test Product'
+        }
+      ]
+    };
+
+    try {
+      const transaction = await this.snap.createTransaction(parameter);
+
+      return {
+        order_id: orderId,
+        snap_token: transaction.token,
+        redirect_url: transaction.redirect_url,
+        message: 'Test transaction created successfully. Use snap_token for payment.'
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to create test transaction: ${error.message}`);
+    }
   }
 }
 

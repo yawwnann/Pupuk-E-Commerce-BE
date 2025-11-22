@@ -27,8 +27,68 @@ export const upload = multer({
   fileFilter: fileFilter,
 });
 
-// Middleware untuk single file upload
-export const uploadSingle = upload.single('image');
+// Middleware untuk single file upload dengan error handling
+export const uploadSingle = (req: any, res: any, next: any) => {
+  upload.single('image')(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File size exceeds 5MB limit'
+        });
+      }
+      if (err.message === 'Field name missing') {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide an image file with field name "image"'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    } else if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+    next();
+  });
+};
 
-// Middleware untuk multiple files upload
-export const uploadMultiple = upload.array('images', 5); // max 5 images
+// Middleware untuk multiple files upload dengan error handling
+export const uploadMultiple = (req: any, res: any, next: any) => {
+  upload.array('images', 5)(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File size exceeds 5MB limit'
+        });
+      }
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          success: false,
+          message: 'Maximum 5 images allowed'
+        });
+      }
+      if (err.message === 'Field name missing') {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide image files with field name "images"'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    } else if (err) {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+    next();
+  });
+};

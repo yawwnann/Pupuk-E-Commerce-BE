@@ -83,6 +83,44 @@ class PaymentController {
       return handleError(res, error);
     }
   }
+
+  async testMidtransConfig(req: Request, res: Response): Promise<Response> {
+    try {
+      const config = await PaymentService.testMidtransConnection();
+
+      return res.status(200).json(
+        successResponse("Midtrans configuration test completed", config)
+      );
+    } catch (error) {
+      return handleError(res, error);
+    }
+  }
+
+  async testCreateTransaction(req: Request, res: Response): Promise<Response> {
+    try {
+      const { amount, customer_name, customer_email, customer_phone } = req.body;
+
+      if (!amount || !customer_name || !customer_email) {
+        return res.status(400).json({
+          success: false,
+          message: "amount, customer_name, and customer_email are required"
+        });
+      }
+
+      const result = await PaymentService.testCreateTransaction({
+        amount: parseFloat(amount),
+        customer_name,
+        customer_email,
+        customer_phone: customer_phone || ''
+      });
+
+      return res.status(200).json(
+        successResponse("Test transaction created successfully", result)
+      );
+    } catch (error) {
+      return handleError(res, error);
+    }
+  }
 }
 
 export default new PaymentController();
